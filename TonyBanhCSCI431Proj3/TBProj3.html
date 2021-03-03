@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<!-- saved from url=(0084)https://www.interactivecomputergraphics.com/8E/Code%20update/03/rotatingSquare3.html -->
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <title>Rotating Triangle</title>
+</head>
+
+<body data-new-gr-c-s-check-loaded="14.995.0" data-gr-ext-installed="">
+    <div>
+        speed 0% <input id="slider" type="range" min="0" max="100" step="10" value="50">
+        100%
+    </div>
+
+
+    <button id="Direction">Change Rotation Direction</button>
+
+    <select id="Controls" size="4">
+        <option value="0">Toggle Rotation Direction</option>
+        <option value="1">Spin Faster</option>
+        <option value="2">Spin Slower</option>
+        <option value="3">Red</option>
+        <option value="4">Green</option>
+        <option value="5">Blue</option>
+        <option value="6">Black</option>
+    </select>
+
+    <canvas id="gl-canvas" width="512" height="512"> </canvas>
+
+
+    <script id="vertex-shader" type="x-shader/x-vertex">
+        #version 300 es
+
+in vec4 aPosition;
+uniform float uTheta;
+
+void
+main()
+{
+    float s = sin(uTheta);
+    float c = cos(uTheta);
+
+    gl_Position.x = -s*aPosition.y + c*aPosition.x;
+    gl_Position.y =  s*aPosition.x + c*aPosition.y;
+    gl_Position.z = 0.0;
+    gl_Position.w = 1.0;
+}
+</script>
+
+    <script id="fragment-shader" type="x-shader/x-fragment">
+        #version 300 es
+precision mediump float;
+
+out vec4 fColor;
+uniform vec4 cColor;
+
+void
+main()
+{
+    fColor = cColor;
+}
+</script>
+
+    <script src="./initShaders.js"></script>
+    <script src="./MVnew.js"></script>
+    <script src="./TBRotatingTriangle.js"></script>
+    <script src="./utility.js"></script>
+
+</body>
+
+</html>
