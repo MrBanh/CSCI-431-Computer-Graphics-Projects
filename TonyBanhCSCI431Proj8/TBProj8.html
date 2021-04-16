@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="./initShaders.js" defer></script>
+    <script src="./MVnew.js" defer></script>
+    <script src="gl-matrix-min.js" defer></script>
+    <script src="./TBProj8.js" defer></script>
+    <title>Tony Banh - Proj 8</title>
+</head>
+
+<body>
+    <canvas id="canvas" width="480" height="480"></canvas>
+
+    <div id="controls">
+        <button id="rotateX">Rotate X</button>
+        <button id="rotateY">Rotate Y</button>
+        <button id="rotateZ">Rotate Z</button>
+        <button id="toggleRotate">Toggle Rotation</button>
+    </div>
+
+    <script id="vertex-shader" type="x-shader/x-vertex">
+        #version 300 es
+
+    const vec3 lightDirection = normalize(vec3(0, 1.0, 1.0));
+    const float ambient = 0.1;
+
+    // Attribute data as input to vertex shader from buffer
+    in vec3 position;
+    in vec2 textureCoord;
+    in vec3 normal;
+
+    // Matrix which we will use to transform the positions
+    uniform mat4 matrix;
+    uniform mat4 normalMatrix;
+
+    // Varying texture coordinates passed to fragment shader
+    out vec2 vTextureCoord;
+
+    // Varying float for brightness passed to fragment shader
+    out float brightness;
+
+    void main() {
+        vec3 worldNormal = (normalMatrix * vec4(normal, 1)).xyz;
+        float diffuse = max(0.0, dot(worldNormal, lightDirection));
+        brightness = diffuse + ambient;
+
+        // Passes the texture coordinates to fragment shader
+        vTextureCoord = textureCoord;
+
+        gl_Position = matrix * vec4(position, 1.0);
+    }
+    </script>
+
+    <script id="fragment-shader" type="x-shader/x-fragment">
+        #version 300 es
+
+    precision highp float;
+
+    // Texture coordinates from vertex shader
+    in vec2 vTextureCoord;
+
+    // Brightness from vertex shader
+    in float brightness;
+
+    // Texture from buffer
+    uniform sampler2D textureID;
+
+    // Output for fragment shader
+    out vec4 fragColor;
+
+    void main() {
+        vec4 texel = texture(textureID, vTextureCoord);
+        texel.xyz *= brightness;
+        fragColor = texel;
+    }
+    </script>
+</body>
+
+</html>
