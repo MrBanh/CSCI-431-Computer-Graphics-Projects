@@ -1,19 +1,40 @@
 "use strict";
+const canvas = document.getElementById("canvas");
+const gl = canvas.getContext("webgl2");
+if (!gl) { alert("WebGL 2.0 is not available for your browser"); }
 
 // Util functions
+/**
+ * @param { int } n - Number of repeating pattern
+ * @param { int[] } pattern
+ * @return { int[] } - Array with n number of the pattern provided
+ */
 function repeat(n, pattern) {
     return [...Array(n)].reduce(sum => sum.concat(pattern), []);
 }
 
-function radToDeg(r) {
-return r * 180 / Math.PI;
+/**
+ * @param { int } d - Degree
+ * @returns { int } - Degree converted to radians
+ */
+function degToRad(d) {
+    return d * Math.PI / 180;
 }
 
-function degToRad(d) {
-return d * Math.PI / 180;
+function configTexture(image) {
+    const texture = gl.createTexture();
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, texSize, texSize, 0,
+        gl.RGBA, gl.UNSIGNED_BYTE, image);
+    gl.generateMipmap(gl.TEXTURE_2D);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER,
+        gl.NEAREST_MIPMAP_LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
 }
 
 // Data for buffer
+let programInfo;
 const positions = [
     // Front
     0.5, 0.5, 0.5,
@@ -74,6 +95,53 @@ const textureCoordinates = repeat(6, [
     0, 0
 ])
 
+const texSize = 64;
+const image1 = new Array()
+
+for (let i = 0; i < texSize; i++) {
+    image1[i] = new Array();
+}
+
+for (let i =0; i < texSize; i++) {
+    for (let j = 0; j < texSize; j++) {
+        image1[i][j] = new Float32Array(4);
+    }
+}
+
+for (let i =0; i<texSize; i++) {
+    for (let j=0; j<texSize; j++) {
+        let c = (((i & 0x8) == 0) ^ ((j & 0x8)  == 0));
+        image1[i][j] = [c, c, c, 1];
+    }
+}
+
+const image2 = new Uint8Array(4*texSize*texSize);
+for (let i = 0; i < texSize; i++) {
+    for (let j = 0; j < texSize; j++) {
+        for(let k = 0; k < 4; k++) {
+            image2[4*texSize*i+4*j+k] = 255*image1[i][j][k];
+        }
+    }
+}
+
+const vertexColors = [
+    [1.0, 0.0, 0.0, 1.0],
+    [1.0, 1.0, 0.0, 1.0],
+    [0.0, 1.0, 0.0, 1.0],
+    [0.0, 0.0, 1.0, 1.0],
+    [1.0, 0.0, 1.0, 1.0],
+    [0.0, 1.0, 1.0, 1.0]
+]
+
+const colors = [
+    ...repeat(6, vertexColors[0]),
+    ...repeat(6, vertexColors[1]),
+    ...repeat(6, vertexColors[2]),
+    ...repeat(6, vertexColors[3]),
+    ...repeat(6, vertexColors[4]),
+    ...repeat(6, vertexColors[5]),
+]
+
 const normals = [
     ...repeat(6, [0, 0, 1]),
     ...repeat(6, [-1, 0, 0]),
@@ -95,8 +163,13 @@ let aspectRatio = canvas.width / canvas.height;
 let near = 1e-4;
 let far = 1e4;
 glMatrix.mat4.perspective(projectionMatrix, fieldOfView, aspectRatio, near, far);
-glMatrix.mat4.translate(viewMatrix, viewMatrix, [0, 0.1, 2]);
+glMatrix.mat4.translate(viewMatrix, viewMatrix, [0, 0, 3]);
 glMatrix.mat4.invert(viewMatrix, viewMatrix);
+
+// For moving the object around the screen
+let translateX = 0;
+let translateY = 0;
+let translateZ = 0;
 
 // For modifying Axis of rotation
 const xAxis = 0;
@@ -155,6 +228,14 @@ function setTextureCoord(gl) {
     return textureCoordBuffer;
 }
 
+function setColor(gl) {
+    const colorBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW)
+
+    return colorBuffer;
+}
+
 function setNormal(gl) {
     const normalBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
@@ -167,11 +248,30 @@ function createBuffers(gl) {
     return {
         positionBuffer: setGeometry(gl),
         textureCoordBuffer: setTextureCoord(gl),
+        colorBuffer: setColor(gl),
         normalBuffer: setNormal(gl)
     }
 }
 
 function initEventListeners() {
+    document.getElementById("translateX").addEventListener("input", function() {
+        document.getElementById("translateX_value").textContent = this.value;
+        translateX = this.value / 50;
+        glMatrix.mat4.fromTranslation(modelMatrix, [translateX, translateY, translateZ])
+    })
+
+    document.getElementById("translateY").addEventListener("input", function() {
+        document.getElementById("translateY_value").textContent = this.value;
+        translateY = this.value / 50;
+        glMatrix.mat4.fromTranslation(modelMatrix, [translateX, translateY, translateZ])
+    })
+
+    document.getElementById("translateZ").addEventListener("input", function() {
+        document.getElementById("translateZ_value").textContent = this.value;
+        translateZ = this.value / 50;
+        glMatrix.mat4.fromTranslation(modelMatrix, [translateX, translateY, translateZ])
+    })
+
     document.getElementById("rotateX").addEventListener("click", function() { axis = xAxis})
     document.getElementById("rotateY").addEventListener("click", function() { axis = yAxis})
     document.getElementById("rotateZ").addEventListener("click", function() { axis = zAxis})
@@ -181,10 +281,6 @@ function initEventListeners() {
 }
 
 function main () {
-    const canvas = document.getElementById("canvas");
-    const gl = canvas.getContext("webgl2");
-    if (!gl) { alert("WebGL 2.0 is not available for your browser"); }
-
     // Convert clip space to pixels
     gl.viewport(0, 0, canvas.width, canvas.height);
 
@@ -196,11 +292,12 @@ function main () {
     gl.useProgram(program);
 
     // Program data, including attribute and uniform locations
-    const programInfo = {
+    programInfo = {
         program,
         attribLocations: {
             position: gl.getAttribLocation(program, "position"),
             textureCoord: gl.getAttribLocation(program, "textureCoord"),
+            color: gl.getAttribLocation(program, 'color'),
             normal: gl.getAttribLocation(program, "normal"),
         },
         uniformLocations: {
@@ -214,8 +311,8 @@ function main () {
     const buffers = createBuffers(gl);
 
     // Enable vertex attributes
-    const { position, textureCoord, normal } = programInfo.attribLocations;
-    const { positionBuffer, textureCoordBuffer, normalBuffer } = buffers;
+    const { position, textureCoord, color, normal } = programInfo.attribLocations;
+    const { positionBuffer, textureCoordBuffer, colorBuffer, normalBuffer } = buffers;
 
     gl.enableVertexAttribArray(position);
     gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
@@ -225,43 +322,41 @@ function main () {
     gl.bindBuffer(gl.ARRAY_BUFFER, textureCoordBuffer);
     gl.vertexAttribPointer(textureCoord, 2, gl.FLOAT, false, 0, 0);
 
+    gl.enableVertexAttribArray(color);
+    gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+    gl.vertexAttribPointer(color, 4, gl.FLOAT, false, 0, 0);
+
     gl.enableVertexAttribArray(normal);
     gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
     gl.vertexAttribPointer(normal, 3, gl.FLOAT, false, 0, 0);
 
-    // Load in texture
-    const texture = loadTexture(gl, "/default_brick.png");
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-
     // Use texture set at texture unit 0
+    configTexture(image2);
     gl.uniform1i(programInfo.uniformLocations.textureID, 0);
-
-    // Initialize event listeners
-    initEventListeners();
-
-    function render() {
-        // Clear the canvas AND the depth buffer.
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-        if (isRotating) {
-            glMatrix.mat4.rotate(modelMatrix, modelMatrix, Math.PI / 60, rotateAround[axis]);
-        };
-
-        glMatrix.mat4.multiply(mvMatrix, viewMatrix, modelMatrix);
-        glMatrix.mat4.multiply(mvpMatrix, projectionMatrix, mvMatrix);
-
-        glMatrix.mat4.invert(normMatrix, mvMatrix);
-        glMatrix.mat4.transpose(normMatrix, normMatrix);
-
-        gl.uniformMatrix4fv(programInfo.uniformLocations.matrix, false, mvpMatrix);
-        gl.uniformMatrix4fv(programInfo.uniformLocations.normalMatrix, false, normMatrix);
-        gl.drawArrays(gl.TRIANGLES, 0, positions.length / 3);
-1
-        requestAnimationFrame(render);
-    }
 
     render();
 }
 
+function render() {
+    // Clear the canvas AND the depth buffer.
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+
+    if (isRotating) {
+        glMatrix.mat4.rotate(modelMatrix, modelMatrix, Math.PI / 60, rotateAround[axis]);
+    };
+
+    glMatrix.mat4.multiply(mvMatrix, viewMatrix, modelMatrix);
+    glMatrix.mat4.multiply(mvpMatrix, projectionMatrix, mvMatrix);
+
+    glMatrix.mat4.invert(normMatrix, mvMatrix);
+    glMatrix.mat4.transpose(normMatrix, normMatrix);
+
+    gl.uniformMatrix4fv(programInfo.uniformLocations.matrix, false, mvpMatrix);
+    gl.uniformMatrix4fv(programInfo.uniformLocations.normalMatrix, false, normMatrix);
+    gl.drawArrays(gl.TRIANGLES, 0, positions.length / 3);
+    requestAnimationFrame(render);
+}
+
+initEventListeners();
 main();

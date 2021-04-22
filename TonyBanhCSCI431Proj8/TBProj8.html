@@ -13,9 +13,24 @@
 </head>
 
 <body>
-    <canvas id="canvas" width="480" height="480"></canvas>
+    <canvas style="border: 1px solid black;" id="canvas" width="480" height="480"></canvas>
 
     <div id="controls">
+        <div style="display: flex; align-items: stretch; padding: 5px;">
+            <label for="translateX">x </label>
+            <input type="range" name="translateX" id="translateX" min="-200" max="200" step="1" value="0">
+            <span class="slider" id="translateX_value">0</span>
+        </div>
+        <div style="display: flex; align-items: stretch; padding: 5px;">
+            <label for="translateY">y </label>
+            <input type="range" name="translateY" id="translateY" min="-200" max="200" step="1" value="0">
+            <span class="slider" id="translateY_value">0</span>
+        </div>
+        <div style="display: flex; align-items: stretch; padding: 5px;">
+            <label for="translateZ">z </label>
+            <input type="range" name="translateZ" id="translateZ" min="-200" max="200" step="1" value="0">
+            <span class="slider" id="translateZ_value">0</span>
+        </div>
         <button id="rotateX">Rotate X</button>
         <button id="rotateY">Rotate Y</button>
         <button id="rotateZ">Rotate Z</button>
@@ -31,11 +46,14 @@
     // Attribute data as input to vertex shader from buffer
     in vec3 position;
     in vec2 textureCoord;
+    in vec4 color;
     in vec3 normal;
 
     // Matrix which we will use to transform the positions
     uniform mat4 matrix;
     uniform mat4 normalMatrix;
+
+    out vec4 vColor;
 
     // Varying texture coordinates passed to fragment shader
     out vec2 vTextureCoord;
@@ -48,6 +66,8 @@
         float diffuse = max(0.0, dot(worldNormal, lightDirection));
         brightness = diffuse + ambient;
 
+        vColor = color;
+
         // Passes the texture coordinates to fragment shader
         vTextureCoord = textureCoord;
 
@@ -59,6 +79,8 @@
         #version 300 es
 
     precision highp float;
+
+    in vec4 vColor;
 
     // Texture coordinates from vertex shader
     in vec2 vTextureCoord;
@@ -75,7 +97,7 @@
     void main() {
         vec4 texel = texture(textureID, vTextureCoord);
         texel.xyz *= brightness;
-        fragColor = texel;
+        fragColor = vColor * texel;
     }
     </script>
 </body>
